@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class FolderServiceImpl implements FolderService {
 
     private final FolderRepository folderRepository;
-    private final UserRepository userRepository; // <-- injected to validate users
+    private final UserRepository userRepository;
 
     @Override
     public FolderResponseDto createFolder(FolderRequestDto request) {
@@ -33,39 +33,38 @@ public class FolderServiceImpl implements FolderService {
         Long userId = request.getUserId();
         Long parentId = request.getParentFolderId();
 
-        // --- NEW: ensure user exists ---
-        if (!userRepository.existsById(userId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        // Ensure user exists
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // If parentId is null => attach to user's root folder (create root if missing)
+        Folder parent = null;
+        if (parentId == null) {
+            parent = getOrCreateRootFolder(user);
+            parentId = parent.getId();
+        } else {
+            parent = folderRepository.findById(parentId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent folder not found"));
+            if (!Objects.equals(parent.getUser().getId(), userId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parent folder belongs to a different user");
+            }
         }
 
-        // uniqueness check
-        boolean nameExists;
-        if (parentId == null) {
-            nameExists = folderRepository.existsByUserIdAndNameAndParentFolderIsNull(userId, request.getName());
-        } else {
-            nameExists = folderRepository.existsByUserIdAndNameAndParentFolder_Id(userId, request.getName(), parentId);
-        }
+        // Uniqueness check scoped to parent
+        boolean nameExists = folderRepository.existsByUser_IdAndNameAndParentFolder_Id(userId, request.getName(), parentId);
         if (nameExists) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Folder with the same name already exists in the parent scope");
         }
 
         Folder folder = new Folder();
-        // folder.setUserId(userId);
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         folder.setUser(user);
         folder.setName(request.getName());
+        folder.setParentFolder(parent);
         folder.setCreatedAt(LocalDateTime.now());
+        folder.setRoot(false);
 
-        if (parentId != null) {
-            Folder parent = folderRepository.findById(parentId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent folder not found"));
-            if (!Objects.equals(parent.getUser().getId(), userId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parent folder belongs to a different user");
-            }
-            folder.setParentFolder(parent);
-            parent.getSubFolders().add(folder); // maintain both sides
-        }
+        // maintain both sides
+        parent.getSubFolders().add(folder);
 
         Folder saved = folderRepository.save(folder);
         return toDto(saved);
@@ -80,12 +79,12 @@ public class FolderServiceImpl implements FolderService {
 
     @Override
     public List<FolderResponseDto> getUserRootFolders(Long userId) {
-        // Optional: validate the user exists before returning an empty list for a non-existent user
-        if (!userRepository.existsById(userId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-        }
-        List<Folder> roots = folderRepository.findByUserIdAndParentFolderIsNull(userId);
-        return roots.stream().map(this::toDto).collect(Collectors.toList());
+        // returns children of the user's root
+        Folder root = folderRepository.findByUser_IdAndRootTrue(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Root folder not found for user"));
+
+        List<Folder> children = folderRepository.findByParentFolder_Id(root.getId());
+        return children.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Override
@@ -95,57 +94,54 @@ public class FolderServiceImpl implements FolderService {
         Long userId = request.getUserId();
         Long newParentId = request.getParentFolderId();
 
-        // --- NEW: ensure user exists ---
-        if (!userRepository.existsById(userId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         Folder folder = folderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Folder not found"));
 
-        // ensure same user (cannot reassign someone else's folder)
+        // Prevent updating root folder properties
+        if (folder.isRoot()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot modify root folder");
+        }
+
+        // ensure same user
         if (!Objects.equals(folder.getUser().getId(), userId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot change folder of different user");
         }
 
-        // check for name uniqueness in new parent scope
-        boolean nameExists;
+        // resolve new parent (if null attach to user's root)
+        Folder newParent = null;
         if (newParentId == null) {
-            nameExists = folderRepository.existsByUserIdAndNameAndParentFolderIsNull(userId, request.getName());
+            newParent = getOrCreateRootFolder(user);
+            newParentId = newParent.getId();
         } else {
-            nameExists = folderRepository.existsByUserIdAndNameAndParentFolder_Id(userId, request.getName(), newParentId);
+            newParent = folderRepository.findById(newParentId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "New parent folder not found"));
+            if (!Objects.equals(newParent.getUser().getId(), userId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New parent belongs to different user");
+            }
         }
 
+        // check uniqueness in new parent scope (excluding self)
+        boolean nameExists = folderRepository.existsByUser_IdAndNameAndParentFolder_Id(userId, request.getName(), newParentId);
         if (nameExists) {
             // fetch candidate siblings to check if it is the same folder
-            List<Folder> siblings = (newParentId == null)
-                    ? folderRepository.findByUserIdAndParentFolderIsNull(userId)
-                    : folderRepository.findByParentFolder_Id(newParentId);
+            List<Folder> siblings = folderRepository.findByParentFolder_Id(newParentId);
             boolean conflict = siblings.stream().anyMatch(s -> !Objects.equals(s.getId(), id) && s.getName().equals(request.getName()));
             if (conflict) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Folder with the same name already exists in the parent scope");
             }
         }
 
-        // Update parent relation if changed
+        // move folder if parent changed
         Long currentParentId = folder.getParentFolder() == null ? null : folder.getParentFolder().getId();
         if (!Objects.equals(currentParentId, newParentId)) {
-            // remove from old parent
             if (folder.getParentFolder() != null) {
                 folder.getParentFolder().getSubFolders().remove(folder);
             }
-
-            if (newParentId != null) {
-                Folder newParent = folderRepository.findById(newParentId)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "New parent folder not found"));
-                if (!Objects.equals(newParent.getUser().getId(), userId)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New parent belongs to different user");
-                }
-                folder.setParentFolder(newParent);
-                newParent.getSubFolders().add(folder);
-            } else {
-                folder.setParentFolder(null);
-            }
+            folder.setParentFolder(newParent);
+            newParent.getSubFolders().add(folder);
         }
 
         folder.setName(request.getName());
@@ -157,35 +153,51 @@ public class FolderServiceImpl implements FolderService {
     public void deleteFolder(Long id) {
         Folder folder = folderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Folder not found"));
-        // cascade and orphanRemoval will remove children
+
+        if (folder.isRoot()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete root folder");
+        }
+
         folderRepository.delete(folder);
     }
 
     @Override
     public FolderTreeResponseDto getFolderTree(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-        }
-        List<Folder> roots = folderRepository.findByUserIdAndParentFolderIsNull(userId);
-        FolderTreeResponseDto root = new FolderTreeResponseDto();
-        root.setId(null);
-        root.setName("root");
-        for (Folder r : roots) {
-            root.getChildren().add(toTreeDto(r));
-        }
-        return root;
+        Folder root = folderRepository.findByUser_IdAndRootTrue(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Root folder not found for user"));
+
+        FolderTreeResponseDto rootDto = new FolderTreeResponseDto();
+        rootDto.setId(root.getId());
+        rootDto.setName("root");
+        root.getSubFolders().stream()
+                .sorted(Comparator.comparing(Folder::getName))
+                .forEach(child -> rootDto.getChildren().add(toTreeDto(child)));
+
+        return rootDto;
     }
 
-    // ------ Mapping helpers ------
+    // Helper: find or create the user's root folder
+    private Folder getOrCreateRootFolder(User user) {
+        return folderRepository.findByUser_IdAndRootTrue(user.getId())
+                .orElseGet(() -> {
+                    Folder root = new Folder();
+                    root.setUser(user);
+                    root.setName("root");
+                    root.setParentFolder(null);
+                    root.setRoot(true);
+                    root.setCreatedAt(LocalDateTime.now());
+                    return folderRepository.save(root);
+                });
+    }
 
+    // mapping helpers (unchanged except userId retrieval)
     private FolderResponseDto toDto(Folder folder) {
         FolderResponseDto dto = new FolderResponseDto();
         dto.setId(folder.getId());
-        dto.setUserId(folder.getUser().getId());
+        dto.setUserId(folder.getUser() == null ? null : folder.getUser().getId());
         dto.setName(folder.getName());
         dto.setParentFolderId(folder.getParentFolder() == null ? null : folder.getParentFolder().getId());
         dto.setCreatedAt(folder.getCreatedAt());
-        // map children
         folder.getSubFolders().stream()
                 .sorted(Comparator.comparing(Folder::getName))
                 .forEach(child -> dto.getSubFolders().add(toDto(child)));

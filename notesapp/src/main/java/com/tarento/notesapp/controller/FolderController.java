@@ -4,6 +4,8 @@ import com.tarento.notesapp.dto.FolderRequestDto;
 import com.tarento.notesapp.dto.FolderResponseDto;
 import com.tarento.notesapp.dto.FolderTreeResponseDto;
 import com.tarento.notesapp.service.FolderService;
+
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/folders")
 @RequiredArgsConstructor
+@Tag(name = "Folder", description = "Folder management APIs")
 public class FolderController {
 
     private final FolderService folderService;

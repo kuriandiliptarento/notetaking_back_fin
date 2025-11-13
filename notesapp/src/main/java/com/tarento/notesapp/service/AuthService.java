@@ -3,10 +3,15 @@ package com.tarento.notesapp.service;
 import com.tarento.notesapp.dto.AuthRequest;
 import com.tarento.notesapp.dto.AuthResponse;
 import com.tarento.notesapp.dto.RegisterRequest;
+import com.tarento.notesapp.entity.Folder;
 import com.tarento.notesapp.entity.Role;
 import com.tarento.notesapp.entity.User;
+import com.tarento.notesapp.repository.FolderRepository;
 import com.tarento.notesapp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+
+import java.time.LocalDateTime;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +22,7 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final FolderRepository folderRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -30,8 +36,15 @@ public class AuthService {
                 .role(Role.USER) // Default role
                 .build();
         
-        // TODO: Add check for existing user
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        // Create root folder
+        Folder root = new Folder();
+        root.setName("root");
+        root.setUser(savedUser);
+        root.setParentFolder(null);
+        root.setCreatedAt(LocalDateTime.now());
+        root.setRoot(true);
+        folderRepository.save(root);
         
         var jwtToken = jwtService.generateToken(user);
         return AuthResponse.builder().token(jwtToken).build();

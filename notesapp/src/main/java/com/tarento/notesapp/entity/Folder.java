@@ -24,9 +24,9 @@ public class Folder {
     @EqualsAndHashCode.Include
     private Long id;
 
+    // owner relation (recommend using User entity relation)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false,
-                foreignKey = @ForeignKey(name = "fk_folder_user"))
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_folders_user"))
     private User user;
 
     @Column(nullable = false)
@@ -40,6 +40,9 @@ public class Folder {
     @OneToMany(mappedBy = "parentFolder", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private Set<Folder> subFolders = new HashSet<>();
+
+    @Column(name = "is_root", nullable = false)
+    private boolean root = false;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
