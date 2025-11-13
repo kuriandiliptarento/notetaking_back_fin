@@ -26,13 +26,11 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable) // Disable CSRF
                 .authorizeHttpRequests(auth -> auth
-                        // Whitelist public endpoints
-                        .requestMatchers("/api/v1/auth/**").permitAll() 
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // Require authentication for all other requests
-                        .anyRequest().authenticated()
-                        // .anyRequest().permitAll()
-                )
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/register").permitAll()
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .anyRequest().authenticated()
+        )
                 .sessionManagement(session -> session
                         // Use stateless sessions; Spring Security won't create an HttpSession
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

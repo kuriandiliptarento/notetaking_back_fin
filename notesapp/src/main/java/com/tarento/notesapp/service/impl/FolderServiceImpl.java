@@ -123,6 +123,11 @@ public class FolderServiceImpl implements FolderService {
             }
         }
 
+        // ---- NEW: cycle detection ----
+        // If newParent is a descendant of folder, moving would create a cycle.
+        // Walk up from newParent to root and ensure we never hit the folder being moved.
+        assertNotMovingIntoDescendant(folder, newParent);
+
         // check uniqueness in new parent scope (excluding self)
         boolean nameExists = folderRepository.existsByUser_IdAndNameAndParentFolder_Id(userId, request.getName(), newParentId);
         if (nameExists) {
@@ -176,6 +181,19 @@ public class FolderServiceImpl implements FolderService {
         return rootDto;
     }
 
+    @Override
+    public List<FolderResponseDto> listChildren(Long parentId) {
+        // Ensure parent exists (friendly 404)
+        Folder parent = folderRepository.findById(parentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent folder not found"));
+
+        List<Folder> children = folderRepository.findByParentFolder_Id(parentId);
+        return children.stream()
+                .sorted(Comparator.comparing(Folder::getName))
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     // Helper: find or create the user's root folder
     private Folder getOrCreateRootFolder(User user) {
         return folderRepository.findByUser_IdAndRootTrue(user.getId())
@@ -220,6 +238,22 @@ public class FolderServiceImpl implements FolderService {
         }
         if (request.getName() == null || request.getName().trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name is required");
+        }
+    }
+
+    /**
+     * Throws ResponseStatusException if newParent is a descendant of folder (i.e., moving folder into its own subtree).
+     */
+    private void assertNotMovingIntoDescendant(Folder folder, Folder newParent) {
+        Folder p = newParent;
+        while (p != null) {
+            // Defensive: if either id is null (shouldn't happen for persisted folders), stop checking
+            Long pId = p.getId();
+            Long folderId = folder.getId();
+            if (pId != null && folderId != null && pId.equals(folderId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot move folder into its own descendant");
+            }
+            p = p.getParentFolder();
         }
     }
 }
