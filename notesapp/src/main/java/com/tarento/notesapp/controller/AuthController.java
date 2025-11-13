@@ -6,8 +6,8 @@ import com.tarento.notesapp.dto.RegisterRequest;
 import com.tarento.notesapp.service.AuthService;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
+// import io.swagger.v3.oas.annotations.media.Content;
+// import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +25,8 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "Refister a new user", description = "Registers a new user and returns a JWT token upon successful registration.")
-    @ApiResponse(responseCode = "200", description = "User registered successfully.", content = {
-        @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))
-    })
+    @Operation(summary = "Register a new user", description = "Registers a new user and returns a JWT token upon successful registration.")
+    @ApiResponse(responseCode = "200", description = "User registered successfully.")
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @RequestBody RegisterRequest request
@@ -38,9 +36,7 @@ public class AuthController {
 
 
     @Operation(summary = "Authenticate user", description = "Authenticates a user and returns a JWT token upon successful authentication.")
-    @ApiResponse(responseCode = "200", description = "User authenticated successfully.", content = {
-            @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))
-    })
+    @ApiResponse(responseCode = "200", description = "User authenticated successfully.")
     @PostMapping("/authenticate")
     public ResponseEntity<AuthResponse> authenticate(
             @RequestBody AuthRequest request

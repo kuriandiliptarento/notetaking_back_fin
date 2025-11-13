@@ -13,4 +13,5 @@ public interface FolderService {
     FolderResponseDto updateFolder(Long id, FolderRequestDto request);
     void deleteFolder(Long id);
     FolderTreeResponseDto getFolderTree(Long userId);
+    List<FolderResponseDto> listChildren(Long parentId);
 }
