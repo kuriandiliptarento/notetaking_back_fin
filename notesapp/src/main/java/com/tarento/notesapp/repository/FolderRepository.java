@@ -5,18 +5,21 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface FolderRepository extends JpaRepository<Folder, Long> {
 
-    // root folders (parent is NULL) for a user
-    List<Folder> findByUserIdAndParentFolderIsNull(Long userId);
+    // Find the special root folder for a user
+    Optional<Folder> findByUser_IdAndRootTrue(Long userId);
 
-    // children of a parent folder
+    // Find children of a given parent folder id
     List<Folder> findByParentFolder_Id(Long parentFolderId);
 
-    // uniqueness checks
-    boolean existsByUserIdAndNameAndParentFolderIsNull(Long userId, String name);
+    // Find top-level folders for a user (children of the user's root)
+    List<Folder> findByUser_IdAndParentFolder_Id(Long userId, Long parentFolderId);
 
-    boolean existsByUserIdAndNameAndParentFolder_Id(Long userId, String name, Long parentFolderId);
+    // Uniqueness checks (use parentFolder id)
+    boolean existsByUser_IdAndNameAndParentFolderIsNull(Long userId, String name); // legacy; discouraged
+    boolean existsByUser_IdAndNameAndParentFolder_Id(Long userId, String name, Long parentFolderId);
 }

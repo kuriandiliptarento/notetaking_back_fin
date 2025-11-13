@@ -27,7 +27,7 @@ public class AuthController {
 
     @Operation(summary = "Refister a new user", description = "Registers a new user and returns a JWT token upon successful registration.")
     @ApiResponse(responseCode = "200", description = "User registered successfully.", content = {
-            @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))
+        @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))
     })
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
