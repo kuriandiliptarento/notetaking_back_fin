@@ -4,6 +4,7 @@ package com.tarento.notesapp.controller;
 import com.tarento.notesapp.dto.FolderRequestDto;
 import com.tarento.notesapp.dto.FolderResponseDto;
 import com.tarento.notesapp.dto.FolderTreeResponseDto;
+import com.tarento.notesapp.dto.SuccessResponse;
 import com.tarento.notesapp.service.FolderService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,8 +32,11 @@ public class FolderController {
     @ApiResponse(responseCode = "200", description = "Folder created successfully.")
     @PostMapping
     public ResponseEntity<FolderResponseDto> createFolder(@Valid @RequestBody FolderRequestDto request) {
+        SuccessResponse response = new SuccessResponse("Folder created successfully");
         FolderResponseDto created = folderService.createFolder(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .header("Message", response.getMessage())
+            .body(created);
     }
 
     @Operation(summary = "Get Folder By ID", description = "Fetches folder details by its ID.")
@@ -60,8 +64,9 @@ public class FolderController {
     @ApiResponse(responseCode = "200", description = "User registered successfully.")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteFolder(@PathVariable Long id) {
+    public ResponseEntity<SuccessResponse> deleteFolder(@PathVariable Long id) {
         folderService.deleteFolder(id);
+        return ResponseEntity.ok(new SuccessResponse("Folder deleted successfully"));
     }
 
     @Operation(summary = "Get Folder Tree", description = "Fetches the entire folder tree structure for a user.")
