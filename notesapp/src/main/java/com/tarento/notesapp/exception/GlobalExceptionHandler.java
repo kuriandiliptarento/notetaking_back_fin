@@ -3,14 +3,17 @@ package com.tarento.notesapp.exception;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -50,7 +53,6 @@ public class GlobalExceptionHandler {
 
     /**
      * Handles @Valid on @RequestBody -> MethodArgumentNotValidException
-     * Builds a concise message: "field1: msg1; field2: msg2"
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, WebRequest request) {
@@ -91,6 +93,74 @@ public class GlobalExceptionHandler {
                 System.currentTimeMillis()
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    // --- Handle path/query param type mismatch (e.g., /folders/asas for Long id) ---
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponseDto> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex, WebRequest request) {
+        String paramName = ex.getName();
+        String message;
+        if (ex.getRequiredType() != null) {
+            message = String.format("Invalid value '%s' for parameter '%s'. Expected type: %s.",
+                    ex.getValue(), paramName, ex.getRequiredType().getSimpleName());
+        } else {
+            message = String.format("Invalid value '%s' for parameter '%s'.", ex.getValue(), paramName);
+        }
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                message,
+                System.currentTimeMillis()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    // --- Number format fallback (defensive) ---
+    @ExceptionHandler(NumberFormatException.class)
+    public ResponseEntity<ErrorResponseDto> handleNumberFormat(NumberFormatException ex) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                "Invalid numeric value: " + ex.getMessage(),
+                System.currentTimeMillis()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    // --- Handle unreadable/malformed JSON bodies ---
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDto> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        String msg = "Malformed JSON request";
+        if (ex.getMostSpecificCause() != null) {
+            msg += ": " + ex.getMostSpecificCause().getMessage();
+        }
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                msg,
+                System.currentTimeMillis()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    // --- Data integrity / unique constraint violations (DB) ---
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponseDto> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
+        String rootMsg = "";
+        if (ex.getRootCause() != null) {
+            rootMsg = ex.getRootCause().getMessage();
+        }
+
+        String message = "Conflict: resource already exists or violates data integrity";
+        // Optional: provide DB hint if available
+        if (rootMsg != null && !rootMsg.isEmpty()) {
+            message += " - " + rootMsg;
+        }
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                message,
+                System.currentTimeMillis()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
     // --- ResponseStatusException (preserves the status & reason) ---
