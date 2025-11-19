@@ -1,6 +1,6 @@
 package com.tarento.notesapp.dto;
 
-import jakarta.validation.constraints.Email;
+// import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -8,7 +8,7 @@ import lombok.Data;
 public class UserUpdateDto {
 
     @NotBlank(message = "username is required")
-    @Email(message = "username must be a valid email")
+    // @Email(message = "username must be a valid email")
     private String username;
 
     // private String role; 

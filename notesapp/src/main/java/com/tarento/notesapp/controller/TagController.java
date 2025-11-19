@@ -1,5 +1,6 @@
 package com.tarento.notesapp.controller;
 
+import com.tarento.notesapp.dto.SuccessResponse;
 import com.tarento.notesapp.dto.TagRequestDto;
 import com.tarento.notesapp.dto.TagResponseDto;
 import com.tarento.notesapp.service.TagService;
@@ -58,7 +59,9 @@ public class TagController {
     @ApiResponse(responseCode = "200", description = "Tag deleted successfully.")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTag(@PathVariable Long id) {
+    public ResponseEntity<SuccessResponse> deleteTag(@PathVariable Long id) {
         tagService.deleteTag(id);
+        return ResponseEntity.ok(new SuccessResponse("Tag deleted successfully"));
+
     }
 }

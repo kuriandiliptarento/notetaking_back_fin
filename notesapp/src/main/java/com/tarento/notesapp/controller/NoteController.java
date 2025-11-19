@@ -3,6 +3,7 @@ package com.tarento.notesapp.controller;
 import com.tarento.notesapp.dto.NoteRequestDto;
 import com.tarento.notesapp.dto.NoteResponseDto;
 import com.tarento.notesapp.dto.NoteSummaryDto;
+import com.tarento.notesapp.dto.SuccessResponse;
 import com.tarento.notesapp.service.NoteService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +54,14 @@ public class NoteController {
         return ResponseEntity.ok(noteService.listNotesByUser(userId));
     }
 
+    @GetMapping("/tag/{tagId}/user/{userId}")
+    public ResponseEntity<List<NoteSummaryDto>> listNotesByTagAndUser(
+            @PathVariable("tagId") Long tagId,
+            @PathVariable("userId") Long userId) {
+        List<NoteSummaryDto> result = noteService.listNotesByTagAndUser(tagId, userId);
+        return ResponseEntity.ok(result);
+    }
+
     @Operation(summary = "Update Note", description = "Updates note details (fetched by ID) and returns the updated note details.")
     @ApiResponse(responseCode = "200", description = "Note updated successfully.")
     @PutMapping("/{id}")
@@ -64,7 +73,8 @@ public class NoteController {
     @ApiResponse(responseCode = "200", description = "Note deleted successfully.")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteNote(@PathVariable Long id) {
+    public ResponseEntity<SuccessResponse> deleteNote(@PathVariable Long id) {
         noteService.deleteNote(id);
+        return ResponseEntity.ok(new SuccessResponse("Note deleted successfully"));
     }
 }

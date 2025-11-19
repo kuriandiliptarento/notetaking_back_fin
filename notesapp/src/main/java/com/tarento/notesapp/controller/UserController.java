@@ -1,6 +1,7 @@
 package com.tarento.notesapp.controller;
 
 import com.tarento.notesapp.dto.UserUpdateDto;
+import com.tarento.notesapp.dto.SuccessResponse;
 import com.tarento.notesapp.dto.UserResponseDto;
 import com.tarento.notesapp.service.UserService;
 
@@ -49,8 +50,8 @@ public class UserController {
     @Operation(summary = "Delete User", description = "Deletes user by its ID.")
     @ApiResponse(responseCode = "200", description = "User deleted successfully.")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<SuccessResponse> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(new SuccessResponse("Note deleted successfully"));
     }
 }

@@ -13,7 +13,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"folder", "tags"})
+@ToString(exclude = {"folder", "noteTags"})
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Note {
 
@@ -33,19 +33,42 @@ public class Note {
             foreignKey = @ForeignKey(name = "fk_notes_folder"))
     private Folder folder;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "note_tags",
-            joinColumns = @JoinColumn(name = "note_id",
-                    foreignKey = @ForeignKey(name = "fk_note_tags_note")),
-            inverseJoinColumns = @JoinColumn(name = "tag_id",
-                    foreignKey = @ForeignKey(name = "fk_note_tags_tag"))
-    )
-    private Set<Tag> tags = new HashSet<>();
+    // @ManyToMany(fetch = FetchType.LAZY)
+    // @JoinTable(
+    //         name = "note_tags",
+    //         joinColumns = @JoinColumn(name = "note_id",
+    //                 foreignKey = @ForeignKey(name = "fk_note_tags_note")),
+    //         inverseJoinColumns = @JoinColumn(name = "tag_id",
+    //                 foreignKey = @ForeignKey(name = "fk_note_tags_tag"))
+    // )
+    // private Set<Tag> tags = new HashSet<>();
+
+    @OneToMany(mappedBy = "note", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<NoteTag> noteTags = new HashSet<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    public void addTag(Tag tag) {
+        NoteTag nt = new NoteTag();
+        nt.setNote(this);
+        nt.setTag(tag);
+        this.noteTags.add(nt);
+        tag.getNoteTags().add(nt);
+    }
+
+    public void removeTag(Tag tag) {
+        this.noteTags.removeIf(nt -> {
+            if (nt.getTag().equals(tag)) {
+                tag.getNoteTags().remove(nt);
+                nt.setNote(null);
+                nt.setTag(null);
+                return true;
+            }
+            return false;
+        });
+    }
 }
