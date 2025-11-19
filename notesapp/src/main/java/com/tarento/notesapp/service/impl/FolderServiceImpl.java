@@ -1,11 +1,15 @@
 package com.tarento.notesapp.service.impl;
 
+import com.tarento.notesapp.dto.FolderContentsResponseDto;
 import com.tarento.notesapp.dto.FolderRequestDto;
 import com.tarento.notesapp.dto.FolderResponseDto;
 import com.tarento.notesapp.dto.FolderTreeResponseDto;
+import com.tarento.notesapp.dto.NoteSummaryDto;
 import com.tarento.notesapp.entity.Folder;
+import com.tarento.notesapp.entity.Note;
 import com.tarento.notesapp.entity.User;
 import com.tarento.notesapp.repository.FolderRepository;
+import com.tarento.notesapp.repository.NoteRepository;
 import com.tarento.notesapp.repository.UserRepository;
 import com.tarento.notesapp.service.FolderService;
 import jakarta.transaction.Transactional;
@@ -25,6 +29,7 @@ public class FolderServiceImpl implements FolderService {
 
     private final FolderRepository folderRepository;
     private final UserRepository userRepository;
+    private final NoteRepository noteRepository;
 
     @Override
     public FolderResponseDto createFolder(FolderRequestDto request) {
@@ -123,7 +128,7 @@ public class FolderServiceImpl implements FolderService {
             }
         }
 
-        // ---- NEW: cycle detection ----
+        // ---- cycle detection ----
         // If newParent is a descendant of folder, moving would create a cycle.
         // Walk up from newParent to root and ensure we never hit the folder being moved.
         assertNotMovingIntoDescendant(folder, newParent);
@@ -135,7 +140,7 @@ public class FolderServiceImpl implements FolderService {
             List<Folder> siblings = folderRepository.findByParentFolder_Id(newParentId);
             boolean conflict = siblings.stream().anyMatch(s -> !Objects.equals(s.getId(), id) && s.getName().equals(request.getName()));
             if (conflict) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Folder with the same name already exists in the parent scope");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Folder with the same name already exists in the parent scope(Cannot mov folder into its own descendant)");
             }
         }
 
@@ -194,6 +199,36 @@ public class FolderServiceImpl implements FolderService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public FolderContentsResponseDto listChildrenWithNotes(Long parentId) {
+
+        // 1) Ensure parent exists
+        Folder parent = folderRepository.findById(parentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent folder not found"));
+
+        // 2) Child folders
+        List<FolderResponseDto> childFolders = folderRepository.findByParentFolder_Id(parentId)
+                .stream()
+                .sorted(Comparator.comparing(Folder::getName))
+                .map(this::toDto)
+                .collect(Collectors.toList());
+
+        // 3) Child notes
+        List<NoteSummaryDto> childNotes = noteRepository.findByFolder_Id(parentId)
+                .stream()
+                .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
+                .map(this::toNoteSummaryDto)
+                .collect(Collectors.toList());
+
+        // 4) Combine result
+        FolderContentsResponseDto result = new FolderContentsResponseDto();
+        result.setFolders(childFolders);
+        result.setNotes(childNotes);
+
+        return result;
+    }
+
+
     // Helper: find or create the user's root folder
     private Folder getOrCreateRootFolder(User user) {
         return folderRepository.findByUser_IdAndRootTrue(user.getId())
@@ -231,6 +266,16 @@ public class FolderServiceImpl implements FolderService {
                 .forEach(child -> dto.getChildren().add(toTreeDto(child)));
         return dto;
     }
+
+    private NoteSummaryDto toNoteSummaryDto(Note note) {
+        NoteSummaryDto dto = new NoteSummaryDto();
+        dto.setId(note.getId());
+        dto.setTitle(note.getTitle());
+        dto.setFolderId(note.getFolder().getId());
+        dto.setUpdatedAt(note.getUpdatedAt());
+        return dto;
+    }
+
 
     private void validateCreateRequest(FolderRequestDto request) {
         if (request.getUserId() == null) {

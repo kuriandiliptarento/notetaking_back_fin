@@ -130,9 +130,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponseDto> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         String msg = "Malformed JSON request";
-        if (ex.getMostSpecificCause() != null) {
-            msg += ": " + ex.getMostSpecificCause().getMessage();
-        }
+        // if (ex.getMostSpecificCause() != null) {
+        //     msg += ": " + ex.getMostSpecificCause().getMessage();
+        // }
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.BAD_REQUEST.value(),
                 msg,

@@ -3,8 +3,8 @@ package com.tarento.notesapp.service.impl;
 import com.tarento.notesapp.dto.*;
 import com.tarento.notesapp.entity.Folder;
 import com.tarento.notesapp.entity.Note;
+import com.tarento.notesapp.entity.NoteTag;
 import com.tarento.notesapp.entity.Tag;
-// import com.tarento.notesapp.entity.User;
 import com.tarento.notesapp.repository.FolderRepository;
 import com.tarento.notesapp.repository.NoteRepository;
 import com.tarento.notesapp.repository.TagRepository;
@@ -50,7 +50,7 @@ public class NoteServiceImpl implements NoteService {
             for (Long tagId : request.getTagIds()) {
                 Tag tag = tagRepository.findById(tagId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tag not found: " + tagId));
-                if (!Objects.equals(tag.getUser().getId(), userId)) {
+                if (tag.getUser() == null || !Objects.equals(tag.getUser().getId(), userId)) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tag " + tagId + " does not belong to folder user");
                 }
                 resolvedTags.add(tag);
@@ -61,9 +61,20 @@ public class NoteServiceImpl implements NoteService {
         note.setTitle(request.getTitle());
         note.setContent(request.getContent());
         note.setFolder(folder);
-        note.setTags(resolvedTags);
         note.setCreatedAt(LocalDateTime.now());
         note.setUpdatedAt(LocalDateTime.now());
+
+        // Attach tags via NoteTag join entities
+        if (!resolvedTags.isEmpty()) {
+            for (Tag tag : resolvedTags) {
+                NoteTag nt = new NoteTag();
+                nt.setNote(note);
+                nt.setTag(tag);
+                // ensure both sides
+                note.getNoteTags().add(nt);
+                tag.getNoteTags().add(nt);
+            }
+        }
 
         Note saved = noteRepository.save(note);
         return toDto(saved);
@@ -111,7 +122,7 @@ public class NoteServiceImpl implements NoteService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Folder not found"));
 
         // Ensure the folder change maintains same owner as note's current owner (or allow move if same user)
-        Long currentUserId = note.getFolder().getUser() == null ? null : note.getFolder().getUser().getId();
+        Long currentUserId = note.getFolder() == null || note.getFolder().getUser() == null ? null : note.getFolder().getUser().getId();
         Long newUserId = newFolder.getUser() == null ? null : newFolder.getUser().getId();
 
         if (currentUserId != null && newUserId != null && !Objects.equals(currentUserId, newUserId)) {
@@ -128,7 +139,7 @@ public class NoteServiceImpl implements NoteService {
             for (Long tagId : request.getTagIds()) {
                 Tag tag = tagRepository.findById(tagId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tag not found: " + tagId));
-                if (!Objects.equals(tag.getUser().getId(), userId)) {
+                if (tag.getUser() == null || !Objects.equals(tag.getUser().getId(), userId)) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tag " + tagId + " does not belong to note user");
                 }
                 resolvedTags.add(tag);
@@ -138,12 +149,60 @@ public class NoteServiceImpl implements NoteService {
         note.setTitle(request.getTitle());
         note.setContent(request.getContent());
         note.setFolder(newFolder);
-        note.setTags(resolvedTags);
         note.setUpdatedAt(LocalDateTime.now());
+
+        // Update NoteTag associations: clear existing and attach new ones
+        // Clear both sides for existing NoteTag entries
+        if (!note.getNoteTags().isEmpty()) {
+            // remove from Tag side as well
+            for (Iterator<NoteTag> it = note.getNoteTags().iterator(); it.hasNext(); ) {
+                NoteTag nt = it.next();
+                Tag tag = nt.getTag();
+                if (tag != null) {
+                    tag.getNoteTags().remove(nt);
+                }
+                it.remove();
+            }
+        }
+
+        if (!resolvedTags.isEmpty()) {
+            for (Tag tag : resolvedTags) {
+                NoteTag nt = new NoteTag();
+                nt.setNote(note);
+                nt.setTag(tag);
+                note.getNoteTags().add(nt);
+                tag.getNoteTags().add(nt);
+            }
+        }
 
         Note saved = noteRepository.save(note);
         return toDto(saved);
     }
+
+    @Override
+    public List<NoteSummaryDto> listNotesByTagAndUser(Long tagId, Long userId) {
+        // validate user exists
+        if (!userRepository.existsById(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        // validate tag exists and belongs to the user (defensive)
+        Tag tag = tagRepository.findById(tagId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tag not found"));
+
+        // If tags are per-user, ensure ownership
+        if (tag.getUser() == null || !Objects.equals(tag.getUser().getId(), userId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tag does not belong to user");
+        }
+
+        List<Note> notes = noteRepository.findByNoteTags_Tag_IdAndFolder_User_Id(tagId, userId);
+
+        return notes.stream()
+                .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
+                .map(this::toSummaryDto)
+                .collect(Collectors.toList());
+    }
+
 
     @Override
     public void deleteNote(Long id) {
@@ -163,15 +222,17 @@ public class NoteServiceImpl implements NoteService {
         dto.setCreatedAt(note.getCreatedAt());
         dto.setUpdatedAt(note.getUpdatedAt());
 
-        if (note.getTags() != null) {
-            List<TagBriefDto> tags = note.getTags().stream()
-                    .sorted(Comparator.comparing(Tag::getName))
+        if (note.getNoteTags() != null && !note.getNoteTags().isEmpty()) {
+            List<TagBriefDto> tags = note.getNoteTags().stream()
+                    .map(NoteTag::getTag)
+                    .filter(Objects::nonNull)
                     .map(t -> {
                         TagBriefDto tb = new TagBriefDto();
                         tb.setId(t.getId());
                         tb.setName(t.getName());
                         return tb;
                     })
+                    .sorted(Comparator.comparing(TagBriefDto::getName, Comparator.nullsLast(String::compareTo)))
                     .collect(Collectors.toList());
             dto.setTags(tags);
         }

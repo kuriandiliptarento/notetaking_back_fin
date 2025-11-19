@@ -1,5 +1,6 @@
 package com.tarento.notesapp.controller;
 
+import com.tarento.notesapp.dto.FolderContentsResponseDto;
 // import com.tarento.notesapp.dto.AuthResponse;
 import com.tarento.notesapp.dto.FolderRequestDto;
 import com.tarento.notesapp.dto.FolderResponseDto;
@@ -82,4 +83,13 @@ public class FolderController {
     public ResponseEntity<List<FolderResponseDto>> getChildren(@PathVariable("id") Long id) {
         return ResponseEntity.ok(folderService.listChildren(id));
     }
+
+    @Operation(summary = "Get Child Folders and Notes", description = "Fetches all child folders and child notes of a given folder ID.")
+    @ApiResponse(responseCode = "200", description = "Children fetched successfully.")
+    @GetMapping("/contents/{id}")
+    public ResponseEntity<FolderContentsResponseDto> getFolderContents(@PathVariable Long id) {
+        FolderContentsResponseDto contents = folderService.listChildrenWithNotes(id);
+        return ResponseEntity.ok(contents);
+    }
+
 }

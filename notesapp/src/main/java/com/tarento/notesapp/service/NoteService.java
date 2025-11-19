@@ -13,4 +13,5 @@ public interface NoteService {
     List<NoteSummaryDto> listNotesByUser(Long userId);
     NoteResponseDto updateNote(Long id, NoteRequestDto request);
     void deleteNote(Long id);
+    List<NoteSummaryDto> listNotesByTagAndUser(Long tagId, Long userId);
 }

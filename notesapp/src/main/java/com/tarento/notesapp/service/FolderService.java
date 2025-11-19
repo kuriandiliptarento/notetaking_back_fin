@@ -1,5 +1,6 @@
 package com.tarento.notesapp.service;
 
+import com.tarento.notesapp.dto.FolderContentsResponseDto;
 import com.tarento.notesapp.dto.FolderRequestDto;
 import com.tarento.notesapp.dto.FolderResponseDto;
 import com.tarento.notesapp.dto.FolderTreeResponseDto;
@@ -14,4 +15,6 @@ public interface FolderService {
     void deleteFolder(Long id);
     FolderTreeResponseDto getFolderTree(Long userId);
     List<FolderResponseDto> listChildren(Long parentId);
+    FolderContentsResponseDto listChildrenWithNotes(Long parentId);
+
 }
