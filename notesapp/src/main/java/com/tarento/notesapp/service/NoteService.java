@@ -15,5 +15,6 @@ public interface NoteService {
     void deleteNote(Long id);
     List<NoteSummaryDto> listNotesByTagAndUser(Long tagId, Long userId);
     List<NoteSummaryDto> filterNotesByTags(Long userId, List<Long> tagIds, String mode);
+    List<NoteResponseDto> listFullNotesByUser(Long userId);
 
 }

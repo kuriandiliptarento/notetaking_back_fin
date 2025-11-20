@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 @Service
@@ -108,6 +109,18 @@ public class NoteServiceImpl implements NoteService {
                 .stream()
                 .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
                 .map(this::toSummaryDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<NoteResponseDto> listFullNotesByUser(Long userId){
+        if(!userRepository.existsById(userId)){
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+        return noteRepository.findFullByFolder_User_Id(userId)
+                .stream()
+                .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
+                .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -204,7 +217,7 @@ public class NoteServiceImpl implements NoteService {
     }
 
     @Override
-public List<NoteSummaryDto> filterNotesByTags(Long userId, List<Long> tagIds, String mode) {
+    public List<NoteSummaryDto> filterNotesByTags(Long userId, List<Long> tagIds, String mode) {
     // validate user
     if (!userRepository.existsById(userId)) {
         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");

@@ -16,7 +16,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     // find all notes for a user (via folder -> user relation)
     List<Note> findByFolder_User_Id(Long userId);
 
-    List<Note> findAllByFolder_User_Id(Long userId);
+    List<Note> findFullByFolder_User_Id(Long userId);
 
     List<Note> findByNoteTags_Tag_IdAndFolder_User_Id(Long tagId, Long userId);
 
