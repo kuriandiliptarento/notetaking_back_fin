@@ -55,6 +55,13 @@ public class NoteController {
         return ResponseEntity.ok(noteService.listNotesByUser(userId));
     }
 
+    @Operation(summary = "List full Notes By User", description = "Fetches a complete list of notes for a specific user ID.")
+    @ApiResponse(responseCode = "200", description = "User's Complete Notes listed successfully.")
+    @GetMapping("/user/full/{userId}")
+    public ResponseEntity<List<NoteResponseDto>> listFullByUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(noteService.listFullNotesByUser(userId));
+    }
+
     @GetMapping("/tag/{tagId}/user/{userId}")
     public ResponseEntity<List<NoteSummaryDto>> listNotesByTagAndUser(
             @PathVariable("tagId") Long tagId,
