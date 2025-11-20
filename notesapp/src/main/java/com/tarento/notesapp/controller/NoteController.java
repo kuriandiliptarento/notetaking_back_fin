@@ -4,6 +4,7 @@ import com.tarento.notesapp.dto.NoteRequestDto;
 import com.tarento.notesapp.dto.NoteResponseDto;
 import com.tarento.notesapp.dto.NoteSummaryDto;
 import com.tarento.notesapp.dto.SuccessResponse;
+import com.tarento.notesapp.dto.TagSearchRequest;
 import com.tarento.notesapp.service.NoteService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -76,5 +77,19 @@ public class NoteController {
     public ResponseEntity<SuccessResponse> deleteNote(@PathVariable Long id) {
         noteService.deleteNote(id);
         return ResponseEntity.ok(new SuccessResponse("Note deleted successfully"));
+    }
+
+
+    @Operation(summary = "Search Note by Multiple Tags", description = "Gets note by its Multiple Tags.")
+    @ApiResponse(responseCode = "200", description = "Notes Fetched successfully.")
+    @PostMapping("/search/by-tags/{userId}")
+    public ResponseEntity<List<NoteSummaryDto>> searchByTags(
+            @PathVariable("userId") Long userId,
+            @RequestBody TagSearchRequest request
+    ) {
+        // default mode to AND when not provided
+        String mode = request.getMode() == null ? "AND" : request.getMode();
+        List<NoteSummaryDto> result = noteService.filterNotesByTags(userId, request.getTagIds(), mode);
+        return ResponseEntity.ok(result);
     }
 }

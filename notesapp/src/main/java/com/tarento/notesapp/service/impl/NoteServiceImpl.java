@@ -203,6 +203,37 @@ public class NoteServiceImpl implements NoteService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+public List<NoteSummaryDto> filterNotesByTags(Long userId, List<Long> tagIds, String mode) {
+    // validate user
+    if (!userRepository.existsById(userId)) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+    }
+
+    if (tagIds == null || tagIds.isEmpty()) {
+        // return all notes for user (existing behavior)
+        return noteRepository.findByFolder_User_Id(userId)
+                .stream()
+                .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
+                .map(this::toSummaryDto)
+                .collect(Collectors.toList());
+    }
+
+    List<Note> notes;
+    if ("OR".equalsIgnoreCase(mode)) {
+        notes = noteRepository.findNotesByAnyTag(userId, tagIds);
+    } else {
+        // AND mode: use tag count as parameter
+        notes = noteRepository.findNotesByAllTags(userId, tagIds, tagIds.size());
+    }
+
+    return notes.stream()
+            .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
+            .map(this::toSummaryDto)
+            .collect(Collectors.toList());
+}
+
+
 
     @Override
     public void deleteNote(Long id) {
