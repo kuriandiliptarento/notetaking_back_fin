@@ -52,7 +52,7 @@ public class AuthService {
         root.setRoot(true);
         folderRepository.save(root);
         
-        var jwtToken = jwtService.generateToken(user);
+        var jwtToken = jwtService.generateToken(savedUser, savedUser.getId());
         return AuthResponse.builder().token(jwtToken).build();
     }
 
@@ -67,7 +67,7 @@ public class AuthService {
         var user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(); // Should not happen if auth was successful
         
-        var jwtToken = jwtService.generateToken(user);
+        var jwtToken = jwtService.generateToken(user, user.getId());
         return AuthResponse.builder().token(jwtToken).build();
     }
 }

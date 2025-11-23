@@ -217,7 +217,7 @@ public class NoteServiceImpl implements NoteService {
     }
 
     @Override
-    public List<NoteSummaryDto> filterNotesByTags(Long userId, List<Long> tagIds, String mode) {
+    public List<NoteResponseDto> filterNotesByTags(Long userId, List<Long> tagIds, String mode) {
     // validate user
     if (!userRepository.existsById(userId)) {
         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
@@ -228,7 +228,7 @@ public class NoteServiceImpl implements NoteService {
         return noteRepository.findByFolder_User_Id(userId)
                 .stream()
                 .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
-                .map(this::toSummaryDto)
+                .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -242,7 +242,7 @@ public class NoteServiceImpl implements NoteService {
 
     return notes.stream()
             .sorted(Comparator.comparing(Note::getUpdatedAt).reversed())
-            .map(this::toSummaryDto)
+            .map(this::toDto)
             .collect(Collectors.toList());
 }
 

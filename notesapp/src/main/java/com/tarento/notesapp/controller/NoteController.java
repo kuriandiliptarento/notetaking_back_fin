@@ -90,13 +90,13 @@ public class NoteController {
     @Operation(summary = "Search Note by Multiple Tags", description = "Gets note by its Multiple Tags.")
     @ApiResponse(responseCode = "200", description = "Notes Fetched successfully.")
     @PostMapping("/search/by-tags/{userId}")
-    public ResponseEntity<List<NoteSummaryDto>> searchByTags(
+    public ResponseEntity<List<NoteResponseDto>> searchByTags(
             @PathVariable("userId") Long userId,
             @RequestBody TagSearchRequest request
     ) {
         // default mode to AND when not provided
         String mode = request.getMode() == null ? "AND" : request.getMode();
-        List<NoteSummaryDto> result = noteService.filterNotesByTags(userId, request.getTagIds(), mode);
+        List<NoteResponseDto> result = noteService.filterNotesByTags(userId, request.getTagIds(), mode);
         return ResponseEntity.ok(result);
     }
 }
